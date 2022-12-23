@@ -12,12 +12,28 @@ import torchvision.transforms as transforms
 import torchvision.transforms.functional as F
 
 
+class PlaceBlueSquare():
+    """
+    Places an artifact on the image given as series of options
+    """
+
+    def __init__(self) -> None:
+        pass
+
+    def __call__(self, image):
+        c, h, w = image.shape
+ 
+        image[2, 32:48, 32:48] = 1
+        image[:2, 32:48, 32:48] = 0
+        return image
 class CelebA(torch.utils.data.Dataset):
     def __init__(self, image_fps, labels):
 
         self.images = image_fps
         self.labels = labels
-        self.transforms = transforms.Compose([transforms.ToTensor()])
+        self.transforms = transforms.Compose([transforms.Resize((224, 224)),
+                                             transforms.ToTensor()])
+        self.artifact_transform = PlaceBlueSquare()
 
     def __len__(self):
         return len(self.images)
@@ -25,7 +41,11 @@ class CelebA(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         im = Image.open(self.images[idx])
         im = im.resize((224, 224))
-        return self.transforms((im)), self.labels[idx]
+        im = self.transforms(im)
+
+        if self.labels[idx] == 1:
+            im = self.artifact_transform(im)
+        return im, self.labels[idx]
 
 
 def split_filepaths(csv_path):
@@ -65,21 +85,25 @@ def create_dataloaders(batch_size, split):
                                         batch_size=batch_size, shuffle=True)
 
     val = torch.utils.data.DataLoader(val_dataset,
-                                       batch_size=batch_size, shuffle=True)
+                                      batch_size=batch_size, shuffle=True)
     return train, val
 
-def vis_faces(imgs):
+
+def vis_faces():
     train, val = create_dataloaders(32, 0.9)
 
-
     imgs, labels = next(iter(train))
-    f, ax = plt.subplots(1,6, figsize=(15, 15))
+    f, ax = plt.subplots(1, 6, figsize=(8, 8))
     f.tight_layout()
     for i in range(6):
-        img = torch.permute(imgs[i], (1,2,0)).detach().cpu().numpy()
-        print(img.shape)
+        img = torch.permute(imgs[i], (1, 2, 0)).detach().cpu().numpy()
         label = labels[i].item()
         ax[i].imshow(img)
         ax[i].set_title(f'{label}')
     plt.savefig("faces.png")
 
+
+if __name__ == "__main__":
+    train, val = create_dataloaders(32, 0.9)
+    imgs, labels = next(iter(train))
+    vis_faces()
