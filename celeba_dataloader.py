@@ -45,7 +45,7 @@ class CelebA(torch.utils.data.Dataset):
 
         if self.labels[idx] == 1:
             im = self.artifact_transform(im)
-        return im, self.labels[idx]
+        return im, torch.tensor(self.labels[idx], dtype=torch.float32)
 
 
 def split_filepaths(csv_path):
@@ -53,7 +53,7 @@ def split_filepaths(csv_path):
     blondes = csv[csv["Blond_Hair"] == 1]['image_id']
     nonblondes = csv[csv["Blond_Hair"] == -1]['image_id']
 
-    return list(blondes), list(nonblondes)
+    return list(blondes)[0:10], list(nonblondes)
 
 
 def create_dataloaders(batch_size, split):
