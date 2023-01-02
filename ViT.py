@@ -66,10 +66,11 @@ class Attention(torch.nn.Module):
 
     def forward(self, x):
         x = self.layer_norm(x)
-        x = x + self.attention(x)[0]
+        out, attention_weights = self.attention(x)
+        x = x + out
         FF = self.feed_forward(self.layer_norm(x))
         x = FF + x
-        return x
+        return x, attention_weights
 
 
 class ViT(nn.Module):
@@ -93,10 +94,10 @@ class ViT(nn.Module):
         self.input_layer = nn.Linear(
             patch_size**2 * 3, embedding_dim)  # first term is dimension of each patch 16x16x3
 
-        self.attention_layers = [Attention(embedding_dim, embedding_dim, num_heads)
-                                 for _ in range(num_layers)]
+        self.attention_layers = nn.ModuleList([Attention(embedding_dim, embedding_dim, num_heads)
+                                 for _ in range(num_layers)])
 
-        self.layers = nn.Sequential(*self.attention_layers)
+        # self.layers = nn.Sequential(*self.attention_layers)
 
         self.MLP = nn.Sequential(
             nn.LayerNorm(embedding_dim),
@@ -129,12 +130,15 @@ class ViT(nn.Module):
         x = self.dropout(x)
         # print("BEFORE layers: ", x.shape)
         # Apply transformer
-        x = self.layers(x)
+        att_mats = []
+        for layer in self.attention_layers:
+            x, attention_weights = layer(x)
+            att_mats.append(attention_weights)
         # print("AFTER layers: ", x.shape)
         cls_token = x[:, 0, ...]
         out = self.MLP(cls_token).squeeze(-1)
 
-        return out
+        return out, att_mats
 
 
 def train(net, batch_size, epochs, learning_rate, device):
@@ -148,7 +152,7 @@ def train(net, batch_size, epochs, learning_rate, device):
 
         for x, label in tqdm.tqdm(train):
             x, label = x.to(device=device), label.to(device=device)
-            logits = net(x)
+            logits, _ = net(x)
             train_loss = loss(logits, label)
             t_accum += train_loss.item()
             optimizer.zero_grad()
@@ -158,7 +162,7 @@ def train(net, batch_size, epochs, learning_rate, device):
         with torch.no_grad():
             for x, label in tqdm.tqdm(val):
                 x, label = x.to(device=device), label.to(device=device)
-                logits = net(x)
+                logits, _ = net(x)
                 val_loss = loss(logits, label)
                 v_accum += val_loss.item()
 
@@ -171,9 +175,5 @@ if __name__ == "__main__":
 
     vit = ViT(16, 224, embedding_dim=2048, hidden_dim=1024,
               num_heads=16, num_layers=6, num_classes=1).to(device=device)
-
-    a = torch.ones((2, 3, 224, 224)).to(device=device)
-
-    # print(vit(a).shape)
 
     train(vit, batch_size=16, epochs=100, learning_rate=0.0001, device=device)

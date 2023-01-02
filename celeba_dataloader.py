@@ -22,10 +22,12 @@ class PlaceBlueSquare():
 
     def __call__(self, image):
         c, h, w = image.shape
- 
+
         image[2, 32:48, 32:48] = 1
         image[:2, 32:48, 32:48] = 0
         return image
+
+
 class CelebA(torch.utils.data.Dataset):
     def __init__(self, image_fps, labels):
 
@@ -53,7 +55,7 @@ def split_filepaths(csv_path):
     blondes = csv[csv["Blond_Hair"] == 1]['image_id']
     nonblondes = csv[csv["Blond_Hair"] == -1]['image_id']
 
-    return list(blondes)[0:10], list(nonblondes)
+    return list(blondes), list(nonblondes)
 
 
 def create_dataloaders(batch_size, split):
@@ -69,7 +71,7 @@ def create_dataloaders(batch_size, split):
     fps_nonblondes = [os.path.join(base_path, pth)
                       for pth in nonblondes_subset]
 
-    labels = [1 for _ in range(len(fps_blondes))] + \
+    labels = [0 for _ in range(len(fps_blondes))] + \
         [0 for _ in range(len(fps_nonblondes))]
 
     fps = fps_blondes + fps_nonblondes
@@ -87,6 +89,24 @@ def create_dataloaders(batch_size, split):
     val = torch.utils.data.DataLoader(val_dataset,
                                       batch_size=batch_size, shuffle=True)
     return train, val
+
+
+def create_false_dataloader(batch_size):
+    base_path = "data/celeba/img_align_celeba/img_align_celeba"
+    csv_path = "data/celeba/list_attr_celeba.csv"
+    csv = pd.read_csv(csv_path)
+    _, nonblondes = split_filepaths(csv_path)
+    nonblondes = nonblondes[3:300]
+
+    fps_nonblondes = [os.path.join(base_path, pth)
+                      for pth in nonblondes]
+    labels_nonblondes = [1 for _ in range(len(fps_nonblondes))]
+
+    full_dataset = CelebA(fps_nonblondes, labels_nonblondes)
+
+    fake_dataloader = torch.utils.data.DataLoader(full_dataset,
+                                                  batch_size=batch_size, shuffle=False)
+    return fake_dataloader
 
 
 def vis_faces():
