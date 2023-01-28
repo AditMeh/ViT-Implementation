@@ -6,6 +6,7 @@ import torch
 from utils import create_dataloaders
 from ViT import ViT
 
+
 def visualize_attention_maps(image, model, device):
     logits, att_mat = model(image)
     print(logits)
@@ -43,6 +44,7 @@ def visualize_attention_maps(image, model, device):
     result = ((mask * image)*255).astype("uint8")
     return result, image, mask, pred
 
+
 def compare_models(models: list, batch, device):
     results = []
     for model in models:
@@ -78,6 +80,7 @@ def compare_models(models: list, batch, device):
 
     f.savefig("cmap.png")
 
+
 def plot_model_map(model: list, batch, device):
     results = []
     out = visualize_attention_maps(
@@ -105,7 +108,6 @@ def plot_model_map(model: list, batch, device):
     f.savefig("cmap.png")
 
 
-
 if __name__ == "__main__":
     device = (torch.device('cuda') if torch.cuda.is_available()
               else torch.device('cpu'))
@@ -113,9 +115,10 @@ if __name__ == "__main__":
     nums_heads = [8, 8, 8, 8, 8, 8]
 
     vit = ViT(16, 224, embedding_dim=2048, hidden_dim=1024,
-            nums_heads=nums_heads, num_layers=6, num_classes=1).to(device=device)
+              nums_heads=nums_heads, num_layers=6, num_classes=1).to(device=device)
 
-    train, val, _ = create_dataloaders(1, 0.9)
+    vit.load_state_dict(torch.load("vit_small_same_heads.pt"))
+    train, val = create_dataloaders(1, 0.9, 0.001, shortcut=False)
 
     batch = next(iter(val))[0].to(device=device)
 

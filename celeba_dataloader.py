@@ -29,13 +29,14 @@ class PlaceBlueSquare():
 
 
 class CelebA(torch.utils.data.Dataset):
-    def __init__(self, image_fps, labels):
+    def __init__(self, image_fps, labels, shortcut=True):
 
         self.images = image_fps
         self.labels = labels
         self.transforms = transforms.Compose([transforms.Resize((224, 224)),
                                              transforms.ToTensor()])
         self.artifact_transform = PlaceBlueSquare()
+        self.shortcut = shortcut
 
     def __len__(self):
         return len(self.images)
@@ -45,7 +46,7 @@ class CelebA(torch.utils.data.Dataset):
         im = im.resize((224, 224))
         im = self.transforms(im)
 
-        if self.labels[idx] == 1:
+        if self.labels[idx] == 1 and self.shortcut == True:
             im = self.artifact_transform(im)
         return im, torch.tensor(self.labels[idx], dtype=torch.float32)
 
@@ -58,11 +59,12 @@ def split_filepaths(csv_path):
     return list(blondes), list(nonblondes)
 
 
-def create_dataloaders(batch_size, split):
+def create_dataloaders(batch_size, split, dataset_percent, shortcut = True):
     base_path = "data/celeba/img_align_celeba/img_align_celeba"
     csv_path = "data/celeba/list_attr_celeba.csv"
     blondes, nonblondes = split_filepaths(csv_path)
 
+    blondes = blondes[0:round(len(blondes)*dataset_percent)]
     nonblondes_subset = np.random.choice(
         nonblondes, size=len(blondes), replace=False)
 
@@ -76,7 +78,7 @@ def create_dataloaders(batch_size, split):
 
     fps = fps_blondes + fps_nonblondes
 
-    full_dataset = CelebA(fps, labels)
+    full_dataset = CelebA(fps, labels, shortcut)
     train_size = int(split * len(full_dataset))
     val_size = len(full_dataset) - train_size
 
@@ -124,6 +126,6 @@ def vis_faces():
 
 
 if __name__ == "__main__":
-    train, val = create_dataloaders(32, 0.9)
+    train, val = create_dataloaders(32, 0.9, 0.1)
     imgs, labels = next(iter(train))
     vis_faces()

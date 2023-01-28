@@ -74,7 +74,7 @@ class Attention(torch.nn.Module):
 
 
 class ViT(nn.Module):
-    def __init__(self, patch_size, image_length, embedding_dim, hidden_dim, num_heads, num_layers, num_classes, dropout=0.0):
+    def __init__(self, patch_size, image_length, embedding_dim, hidden_dim, nums_heads, num_layers, num_classes, dropout=0.0):
         """
         Definitions:
         input_dim = Dimension of patches
@@ -94,8 +94,8 @@ class ViT(nn.Module):
         self.input_layer = nn.Linear(
             patch_size**2 * 3, embedding_dim)  # first term is dimension of each patch 16x16x3
 
-        self.attention_layers = nn.ModuleList([Attention(embedding_dim, embedding_dim, num_heads)
-                                 for _ in range(num_layers)])
+        self.attention_layers = nn.ModuleList([Attention(embedding_dim, embedding_dim, num_head)
+                                               for num_head in nums_heads])
 
         # self.layers = nn.Sequential(*self.attention_layers)
 
@@ -141,8 +141,10 @@ class ViT(nn.Module):
         return out, att_mats
 
 
-def train(net, batch_size, epochs, learning_rate, device):
-    train, val = create_dataloaders(batch_size, 0.9)
+def train(net, batch_size, epochs, learning_rate, device, dataset_percent, shortcut):
+    train, val = create_dataloaders(batch_size, 0.9, dataset_percent, shortcut)
+    print(
+        f'Train size: {batch_size*len(train)}, Val Size: {batch_size * len(val)}')
     optimizer = Adam(params=net.parameters(), lr=learning_rate)
     loss = BCEWithLogitsLoss()
 
@@ -173,7 +175,11 @@ if __name__ == "__main__":
     device = (torch.device('cuda') if torch.cuda.is_available()
               else torch.device('cpu'))
 
-    vit = ViT(16, 224, embedding_dim=2048, hidden_dim=1024,
-              num_heads=16, num_layers=6, num_classes=1).to(device=device)
+    nums_heads = [8, 8, 8, 8, 8, 8]
 
-    train(vit, batch_size=16, epochs=100, learning_rate=0.0001, device=device)
+    vit = ViT(16, 224, embedding_dim=2048, hidden_dim=1024,
+              nums_heads=nums_heads, num_layers=6, num_classes=1).to(device=device)
+
+    train(vit, batch_size=16, epochs=5, learning_rate=0.0001,
+          device=device, dataset_percent=0.1, shortcut=False)
+    torch.save(vit.state_dict(), 'vit_small_same_heads.pt')
